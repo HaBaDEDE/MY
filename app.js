@@ -188,7 +188,7 @@ async function unlockQuestionBank(event) {
   els.unlockError.hidden = true;
 
   try {
-    const unlockKey = await requestUnlockKey(accessCode);
+    const unlockKey = await resolveUnlockKey(accessCode);
     questionBank = await loadEncryptedQuestions(unlockKey);
     els.unlockPassword.value = "";
     closeUnlockDialog();
@@ -203,19 +203,39 @@ async function unlockQuestionBank(event) {
   }
 }
 
+async function resolveUnlockKey(accessCode) {
+  try {
+    return await requestUnlockKey(accessCode);
+  } catch (error) {
+    if (!isNetworkUnlockError(error)) throw error;
+    try {
+      await loadEncryptedQuestions(accessCode);
+      return accessCode;
+    } catch {
+      throw error;
+    }
+  }
+}
+
 async function requestUnlockKey(accessCode) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000);
   let response;
   try {
     response = await fetch(UNLOCK_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         site: SITE_CODE,
         password: accessCode,
       }),
     });
-  } catch {
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("UNLOCK_API_TIMEOUT");
     throw new Error("UNLOCK_API_FETCH_FAILED");
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 
   let payload;
@@ -230,6 +250,10 @@ async function requestUnlockKey(accessCode) {
   }
 
   return payload.key;
+}
+
+function isNetworkUnlockError(error) {
+  return error?.message === "UNLOCK_API_FETCH_FAILED" || error?.message === "UNLOCK_API_TIMEOUT";
 }
 
 function closeUnlockDialog() {
@@ -300,7 +324,10 @@ async function loadEncryptedQuestions(password) {
 function getUnlockErrorMessage(error) {
   const message = error?.message || "";
   if (message === "UNLOCK_API_FETCH_FAILED") {
-    return "动态口令服务连接失败，请确认 Worker 已部署并允许访问";
+    return "动态口令服务连接失败。当前网络可能打不开 workers.dev，可改用原题库密码离线解锁";
+  }
+  if (message === "UNLOCK_API_TIMEOUT") {
+    return "动态口令服务超时。当前网络可能打不开 workers.dev，可改用原题库密码离线解锁";
   }
   if (message === "UNLOCK_API_BAD_RESPONSE") {
     return "动态口令服务返回异常，请检查 Worker 代码是否部署正确";
