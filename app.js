@@ -1,6 +1,8 @@
 const pathParts = window.location.pathname.split("/").filter(Boolean);
 const storageScope = pathParts[pathParts.length - 2] || pathParts[pathParts.length - 1] || document.title || "quiz";
 const STORAGE_KEY = `quizSite:${storageScope}:v1`;
+const UNLOCK_API_URL = "https://quiz-password.a8406279307.workers.dev";
+const SITE_CODE = getSiteCode();
 let questionBank = [];
 
 const els = {
@@ -152,18 +154,19 @@ function openUnlockDialog() {
 
 async function unlockQuestionBank(event) {
   event.preventDefault();
-  const password = els.unlockPassword.value;
-  if (!password) {
-    showUnlockError("请输入密码");
+  const accessCode = els.unlockPassword.value.trim();
+  if (!accessCode) {
+    showUnlockError("请输入动态口令");
     return;
   }
 
   els.unlockButton.disabled = true;
-  els.unlockButton.textContent = "解锁中...";
+  els.unlockButton.textContent = "验证中...";
   els.unlockError.hidden = true;
 
   try {
-    questionBank = await loadEncryptedQuestions(password);
+    const unlockKey = await requestUnlockKey(accessCode);
+    questionBank = await loadEncryptedQuestions(unlockKey);
     els.unlockPassword.value = "";
     closeUnlockDialog();
     renderTypeControl();
@@ -175,6 +178,35 @@ async function unlockQuestionBank(event) {
     els.unlockButton.disabled = false;
     els.unlockButton.textContent = "进入题库";
   }
+}
+
+async function requestUnlockKey(accessCode) {
+  let response;
+  try {
+    response = await fetch(UNLOCK_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        site: SITE_CODE,
+        password: accessCode,
+      }),
+    });
+  } catch {
+    throw new Error("UNLOCK_API_FETCH_FAILED");
+  }
+
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("UNLOCK_API_BAD_RESPONSE");
+  }
+
+  if (!response.ok || !payload?.ok || !payload.key) {
+    throw new Error(payload?.error || `UNLOCK_API_HTTP_${response.status}`);
+  }
+
+  return payload.key;
 }
 
 function closeUnlockDialog() {
@@ -244,6 +276,18 @@ async function loadEncryptedQuestions(password) {
 
 function getUnlockErrorMessage(error) {
   const message = error?.message || "";
+  if (message === "UNLOCK_API_FETCH_FAILED") {
+    return "动态口令服务连接失败，请确认 Worker 已部署并允许访问";
+  }
+  if (message === "UNLOCK_API_BAD_RESPONSE") {
+    return "动态口令服务返回异常，请检查 Worker 代码是否部署正确";
+  }
+  if (message === "INVALID_PASSWORD" || message === "UNLOCK_API_HTTP_401") {
+    return "动态口令不正确，或已经过期，请重新生成当前 5 分钟口令";
+  }
+  if (message === "MISSING_ACCESS_SECRET" || message === "MISSING_UNLOCK_KEY") {
+    return "Worker 密钥没有配置完整，请检查 Cloudflare 的 Variables and Secrets";
+  }
   if (message === "QUESTION_FILE_FETCH_FAILED") {
     if (location.protocol === "file:") {
       return "本地不能直接双击打开，请用 python -m http.server 启动后访问 localhost";
@@ -257,9 +301,17 @@ function getUnlockErrorMessage(error) {
     return "当前浏览器不支持安全解密，请使用新版 Chrome/Edge 或通过 HTTPS 打开";
   }
   if (message === "DECRYPT_FAILED") {
-    return "密码不正确，或你上传的 questions.enc 不是最新生成的文件";
+    return "题库解密失败，请确认 Worker 返回的解密密钥和 questions.enc 匹配";
   }
   return "题库解锁失败，请检查 questions.enc 是否上传完整";
+}
+
+function getSiteCode() {
+  const path = window.location.pathname.toUpperCase();
+  if (path.includes("/MY")) return "MY";
+  if (path.includes("/MG")) return "MG";
+  if (document.title.includes("马原")) return "MY";
+  return "MG";
 }
 
 function base64ToBytes(value) {
