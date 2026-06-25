@@ -1,7 +1,7 @@
 const pathParts = window.location.pathname.split("/").filter(Boolean);
 const storageScope = pathParts[pathParts.length - 2] || pathParts[pathParts.length - 1] || document.title || "quiz";
 const STORAGE_KEY = `quizSite:${storageScope}:v1`;
-const UNLOCK_API_URL = "https://quiz-password.a8406279307.workers.dev";
+const KEYRING_SKEW_SLOTS = 1;
 const SITE_CODE = getSiteCode();
 let questionBank = [];
 
@@ -204,56 +204,63 @@ async function unlockQuestionBank(event) {
 }
 
 async function resolveUnlockKey(accessCode) {
-  try {
-    return await requestUnlockKey(accessCode);
-  } catch (error) {
-    if (!isNetworkUnlockError(error)) throw error;
+  if (!/^\d{6}$/.test(accessCode)) throw new Error("INVALID_PASSWORD");
+  const keyring = await loadKeyring();
+  if (keyring.site !== SITE_CODE) throw new Error("KEYRING_SITE_MISMATCH");
+
+  const windowSeconds = keyring.windowSeconds || 300;
+  const currentSlot = Math.floor(Math.floor(Date.now() / 1000) / windowSeconds);
+  const entries = new Map(keyring.entries.map((entry) => [Number(entry.slot), entry]));
+
+  for (let offset = -KEYRING_SKEW_SLOTS; offset <= KEYRING_SKEW_SLOTS; offset += 1) {
+    const slot = currentSlot + offset;
+    const entry = entries.get(slot);
+    if (!entry) continue;
     try {
-      await loadEncryptedQuestions(accessCode);
-      return accessCode;
+      const payload = await decryptWrappedKey(accessCode, keyring, entry);
+      if (payload?.site === SITE_CODE && Number(payload.slot) === slot && payload.key) {
+        return payload.key;
+      }
     } catch {
-      throw error;
+      // Try the adjacent time window before reporting an invalid password.
     }
   }
+
+  throw new Error("INVALID_PASSWORD");
 }
 
-async function requestUnlockKey(accessCode) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+async function loadKeyring() {
   let response;
   try {
-    response = await fetch(UNLOCK_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        site: SITE_CODE,
-        password: accessCode,
-      }),
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error("UNLOCK_API_TIMEOUT");
-    throw new Error("UNLOCK_API_FETCH_FAILED");
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-
-  let payload;
-  try {
-    payload = await response.json();
+    response = await fetch("data/keyring.json", { cache: "no-store" });
   } catch {
-    throw new Error("UNLOCK_API_BAD_RESPONSE");
+    throw new Error("KEYRING_FILE_FETCH_FAILED");
   }
+  if (!response.ok) throw new Error(`KEYRING_FILE_HTTP_${response.status}`);
 
-  if (!response.ok || !payload?.ok || !payload.key) {
-    throw new Error(payload?.error || `UNLOCK_API_HTTP_${response.status}`);
+  try {
+    return await response.json();
+  } catch {
+    throw new Error("KEYRING_FILE_BAD_RESPONSE");
   }
-
-  return payload.key;
 }
 
-function isNetworkUnlockError(error) {
-  return error?.message === "UNLOCK_API_FETCH_FAILED" || error?.message === "UNLOCK_API_TIMEOUT";
+async function decryptWrappedKey(accessCode, keyring, entry) {
+  const salt = base64ToBytes(entry.salt);
+  const iv = base64ToBytes(entry.iv);
+  const encrypted = concatBytes(base64ToBytes(entry.data), base64ToBytes(entry.tag));
+  const material = concatBytes(new TextEncoder().encode(`${SITE_CODE}:${entry.slot}:${accessCode}:`), salt);
+  const rawKey = await crypto.subtle.digest("SHA-256", material);
+  const key = await crypto.subtle.importKey(
+    "raw",
+    rawKey,
+    { name: "AES-GCM" },
+    false,
+    ["decrypt"],
+  );
+  const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+
+  return JSON.parse(new TextDecoder().decode(decrypted));
 }
 
 function closeUnlockDialog() {
@@ -323,20 +330,20 @@ async function loadEncryptedQuestions(password) {
 
 function getUnlockErrorMessage(error) {
   const message = error?.message || "";
-  if (message === "UNLOCK_API_FETCH_FAILED") {
-    return "动态口令服务连接失败。当前网络可能打不开 workers.dev，可改用原题库密码离线解锁";
-  }
-  if (message === "UNLOCK_API_TIMEOUT") {
-    return "动态口令服务超时。当前网络可能打不开 workers.dev，可改用原题库密码离线解锁";
-  }
-  if (message === "UNLOCK_API_BAD_RESPONSE") {
-    return "动态口令服务返回异常，请检查 Worker 代码是否部署正确";
-  }
-  if (message === "INVALID_PASSWORD" || message === "UNLOCK_API_HTTP_401") {
+  if (message === "INVALID_PASSWORD") {
     return "动态口令不正确，或已经过期，请重新生成当前 5 分钟口令";
   }
-  if (message === "MISSING_ACCESS_SECRET" || message === "MISSING_UNLOCK_KEY") {
-    return "Worker 密钥没有配置完整，请检查 Cloudflare 的 Variables and Secrets";
+  if (message === "KEYRING_FILE_FETCH_FAILED") {
+    return "动态口令文件没有加载成功，请检查 data/keyring.json 是否已上传";
+  }
+  if (message.startsWith("KEYRING_FILE_HTTP_")) {
+    return "没有找到 data/keyring.json，请确认 GitHub 仓库里已经上传这个文件";
+  }
+  if (message === "KEYRING_FILE_BAD_RESPONSE") {
+    return "动态口令文件格式异常，请重新生成并上传 data/keyring.json";
+  }
+  if (message === "KEYRING_SITE_MISMATCH") {
+    return "动态口令文件和当前题库不匹配，请确认 MG/MY 文件没有放错";
   }
   if (message === "QUESTION_FILE_FETCH_FAILED") {
     if (location.protocol === "file:") {
@@ -351,7 +358,7 @@ function getUnlockErrorMessage(error) {
     return "当前浏览器不支持安全解密，请使用新版 Chrome/Edge 或通过 HTTPS 打开";
   }
   if (message === "DECRYPT_FAILED") {
-    return "题库解密失败，请确认 Worker 返回的解密密钥和 questions.enc 匹配";
+    return "题库解密失败，请确认 questions.enc 和 keyring.json 是同一批生成的";
   }
   return "题库解锁失败，请检查 questions.enc 是否上传完整";
 }
