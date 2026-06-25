@@ -73,7 +73,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -83,7 +84,8 @@ button {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: none;
   box-shadow: var(--focus);
 }
@@ -648,6 +650,47 @@ button:disabled {
   color: var(--red);
   background: var(--red-bg);
   border-color: #efb0aa;
+}
+
+.note-box {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.note-box label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.note-box textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 84px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.note-box textarea:disabled {
+  background: var(--surface-3);
+  color: var(--muted);
+}
+
+.note-status {
+  min-height: 18px;
+  margin-top: 6px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .question-actions {

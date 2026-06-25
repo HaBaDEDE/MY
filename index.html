@@ -73,6 +73,14 @@
           <button class="primary-button" id="startButton" type="button">开始练习</button>
 
           <div class="quick-grid">
+            <button class="quick-card" id="resumeSessionButton" type="button">
+              <span>↩</span>
+              <small>继续上次</small>
+            </button>
+            <button class="quick-card" id="exportStudyButton" type="button">
+              <span>↓</span>
+              <small>导出资料</small>
+            </button>
             <button class="quick-card" id="mistakePracticeButton" type="button">
               <span id="mistakeCount">0</span>
               <small>错题</small>
@@ -130,6 +138,12 @@
             <div class="options-list" id="optionsList"></div>
 
             <div class="feedback" id="feedbackBox" hidden></div>
+
+            <section class="note-box">
+              <label for="noteInput">我的笔记</label>
+              <textarea id="noteInput" rows="3" placeholder="写下容易混淆的点、记忆口诀或自己的解释"></textarea>
+              <div class="note-status" id="noteStatus"></div>
+            </section>
 
             <div class="celebration-layer" id="celebrationLayer" aria-hidden="true"></div>
 

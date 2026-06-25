@@ -22,6 +22,8 @@ const els = {
   orderControl: document.querySelector("#orderControl"),
   modeControl: document.querySelector("#modeControl"),
   startButton: document.querySelector("#startButton"),
+  resumeSessionButton: document.querySelector("#resumeSessionButton"),
+  exportStudyButton: document.querySelector("#exportStudyButton"),
   mistakePracticeButton: document.querySelector("#mistakePracticeButton"),
   favoritePracticeButton: document.querySelector("#favoritePracticeButton"),
   mistakeCount: document.querySelector("#mistakeCount"),
@@ -39,6 +41,8 @@ const els = {
   questionType: document.querySelector("#questionType"),
   optionsList: document.querySelector("#optionsList"),
   feedbackBox: document.querySelector("#feedbackBox"),
+  noteInput: document.querySelector("#noteInput"),
+  noteStatus: document.querySelector("#noteStatus"),
   celebrationLayer: document.querySelector("#celebrationLayer"),
   favoriteButton: document.querySelector("#favoriteButton"),
   resetStorageButton: document.querySelector("#resetStorageButton"),
@@ -102,6 +106,8 @@ function bindEvents() {
   });
 
   els.startButton.addEventListener("click", () => startSession());
+  els.resumeSessionButton.addEventListener("click", resumeSession);
+  els.exportStudyButton.addEventListener("click", exportStudyPack);
   els.mistakePracticeButton.addEventListener("click", () => startFromSaved("mistakes"));
   els.favoritePracticeButton.addEventListener("click", () => startFromSaved("favorites"));
   els.favoriteButton.addEventListener("click", toggleFavorite);
@@ -118,6 +124,7 @@ function bindEvents() {
     reviewWrongQuestions();
   });
   els.searchInput.addEventListener("input", renderBankMeta);
+  els.noteInput.addEventListener("input", saveCurrentNote);
   els.themeButton.addEventListener("click", toggleTheme);
   els.sponsorButton.addEventListener("click", openSponsorDialog);
   els.closeSponsorButton.addEventListener("click", closeSponsorDialog);
@@ -133,6 +140,9 @@ function showLockedState() {
   els.questionStem.textContent = "请输入密码后加载题库";
   els.questionType.textContent = "锁定";
   els.optionsList.replaceChildren();
+  els.noteInput.value = "";
+  els.noteInput.disabled = true;
+  els.noteStatus.textContent = "";
   els.questionNav.replaceChildren();
   els.progressText.textContent = "0 / 0";
   els.scoreText.textContent = "0";
@@ -414,6 +424,7 @@ function render() {
   renderQuestion();
   renderStats();
   renderNavigator();
+  saveSessionSnapshot();
   renderActionState();
 }
 
@@ -434,6 +445,9 @@ function renderQuestion() {
     els.questionKicker.textContent = "题库";
     els.questionStem.textContent = "没有题目";
     els.questionType.textContent = "空";
+    els.noteInput.value = "";
+    els.noteInput.disabled = true;
+    els.noteStatus.textContent = "";
     return;
   }
 
@@ -486,6 +500,7 @@ function renderQuestion() {
 
   els.favoriteButton.classList.toggle("active", store.favorites.includes(question.id));
   els.favoriteButton.textContent = store.favorites.includes(question.id) ? "★" : "☆";
+  renderNote(question);
 }
 
 function renderStats() {
@@ -543,10 +558,173 @@ function renderActionState() {
   els.clearAnswerButton.disabled = !hasQuestion || session?.completed;
   els.checkButton.disabled = !hasQuestion || session?.completed || checkedInPractice;
   els.favoriteButton.disabled = !hasQuestion;
+  els.noteInput.disabled = !hasQuestion;
   els.finishButton.disabled = !hasQuestion || session?.completed;
   els.checkButton.textContent = session?.mode === "exam" ? "保存" : "确定";
   els.finishButton.classList.toggle("is-hidden", session?.mode !== "exam" && !session?.completed);
   els.redoWrongButton.disabled = !getCurrentWrongIds().length && !store.mistakes.length;
+  els.resumeSessionButton.disabled = !questionBank.length || !store.session;
+  els.exportStudyButton.disabled = !questionBank.length;
+}
+
+function renderNote(question) {
+  const text = store.notes?.[question.id] || "";
+  els.noteInput.value = text;
+  els.noteInput.disabled = false;
+  els.noteStatus.textContent = text ? "已保存本题笔记" : "";
+}
+
+function saveCurrentNote() {
+  const question = getCurrentQuestion();
+  if (!question) return;
+  const value = els.noteInput.value.trim();
+  if (!store.notes) store.notes = {};
+  if (value) store.notes[question.id] = value;
+  else delete store.notes[question.id];
+  els.noteStatus.textContent = value ? "已保存" : "";
+  saveStore();
+}
+
+function saveSessionSnapshot() {
+  if (!session || !session.questions?.length) return;
+  store.session = {
+    ids: session.questions.map((question) => question.id),
+    current: session.current,
+    mode: session.mode,
+    answers: session.answers,
+    checked: session.checked,
+    results: session.results,
+    streak: session.streak,
+    bestStreak: session.bestStreak,
+    completed: session.completed,
+    settings: {
+      type: settings.type,
+      order: settings.order,
+      mode: settings.mode,
+      countValue: els.countSelect.value,
+      customCount: els.customCount.value,
+    },
+    savedAt: Date.now(),
+  };
+  saveStore();
+}
+
+function resumeSession() {
+  if (!questionBank.length) {
+    openUnlockDialog();
+    return;
+  }
+  const snapshot = store.session;
+  if (!snapshot?.ids?.length) {
+    window.alert("暂无上次练习记录");
+    return;
+  }
+
+  const questions = snapshot.ids.map((id) => questionBank.find((item) => item.id === id)).filter(Boolean);
+  if (!questions.length) {
+    window.alert("上次练习记录里的题目已经找不到");
+    return;
+  }
+
+  applyStoredSettings(snapshot.settings || {});
+  session = {
+    questions,
+    current: Math.min(snapshot.current || 0, questions.length - 1),
+    mode: snapshot.mode || settings.mode,
+    answers: snapshot.answers || {},
+    checked: snapshot.checked || {},
+    results: snapshot.results || {},
+    streak: snapshot.streak || 0,
+    bestStreak: snapshot.bestStreak || 0,
+    completed: Boolean(snapshot.completed),
+  };
+  lastRenderedQuestionId = null;
+  render();
+}
+
+function applyStoredSettings(savedSettings) {
+  if (savedSettings.type) settings.type = savedSettings.type;
+  if (savedSettings.order) settings.order = savedSettings.order;
+  if (savedSettings.mode) settings.mode = savedSettings.mode;
+  if (savedSettings.countValue) els.countSelect.value = savedSettings.countValue;
+  if (typeof savedSettings.customCount === "string") els.customCount.value = savedSettings.customCount;
+  els.customCount.disabled = els.countSelect.value !== "custom";
+  setActiveButtonByValue(els.typeControl, "type", settings.type);
+  setActiveButtonByValue(els.orderControl, "order", settings.order);
+  setActiveButtonByValue(els.modeControl, "mode", settings.mode);
+  renderBankMeta();
+}
+
+function exportStudyPack() {
+  if (!questionBank.length) {
+    openUnlockDialog();
+    return;
+  }
+
+  const parts = [
+    `# ${document.title}复习资料`,
+    "",
+    `生成时间：${new Date().toLocaleString()}`,
+    "",
+  ];
+
+  const currentQuestions = session?.questions || [];
+  const mistakeQuestions = idsToQuestions(store.mistakes);
+  const favoriteQuestions = idsToQuestions(store.favorites);
+  const noteQuestions = idsToQuestions(Object.keys(store.notes || {}).map(Number));
+
+  appendQuestionSection(parts, "当前练习", currentQuestions);
+  appendQuestionSection(parts, "错题", mistakeQuestions);
+  appendQuestionSection(parts, "收藏", favoriteQuestions);
+  appendQuestionSection(parts, "我的笔记", noteQuestions, true);
+
+  const content = parts.join("\n").trim() + "\n";
+  downloadText(`${SITE_CODE}-复习资料-${formatDateForFile(new Date())}.md`, content);
+}
+
+function idsToQuestions(ids) {
+  return [...new Set(ids)]
+    .map((id) => questionBank.find((question) => question.id === Number(id)))
+    .filter(Boolean);
+}
+
+function appendQuestionSection(parts, title, questions, notesOnly = false) {
+  parts.push(`## ${title}`, "");
+  if (!questions.length) {
+    parts.push("暂无内容", "");
+    return;
+  }
+
+  questions.forEach((question, index) => {
+    const note = store.notes?.[question.id] || "";
+    if (notesOnly && !note) return;
+    parts.push(`### ${index + 1}. ${question.stem}`);
+    parts.push("");
+    parts.push(`- 题型：${question.type}`);
+    parts.push(`- 原题号：${question.id}`);
+    question.options.forEach((option) => {
+      parts.push(`- ${option.label}. ${option.text}`);
+    });
+    parts.push(`- 正确答案：${formatAnswer(question)}`);
+    if (note) parts.push(`- 我的笔记：${note}`);
+    parts.push("");
+  });
+}
+
+function downloadText(filename, content) {
+  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function formatDateForFile(date) {
+  return date.toISOString().slice(0, 10);
 }
 
 function selectOption(label) {
@@ -757,9 +935,11 @@ function updateSavedCounts() {
 }
 
 function resetSavedData() {
-  const ok = window.confirm("清空错题和收藏记录？");
+  const ok = window.confirm("清空错题、收藏、笔记和上次进度？");
   if (!ok) return;
-  store = { mistakes: [], favorites: [], theme: store.theme || "light" };
+  store = { mistakes: [], favorites: [], notes: {}, session: null, theme: store.theme || "light" };
+  session = null;
+  lastRenderedQuestionId = null;
   saveStore();
   render();
 }
@@ -770,10 +950,12 @@ function loadStore() {
     return {
       mistakes: Array.isArray(parsed.mistakes) ? parsed.mistakes : [],
       favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
+      notes: parsed.notes && typeof parsed.notes === "object" ? parsed.notes : {},
+      session: parsed.session && typeof parsed.session === "object" ? parsed.session : null,
       theme: parsed.theme === "dark" ? "dark" : "light",
     };
   } catch {
-    return { mistakes: [], favorites: [], theme: "light" };
+    return { mistakes: [], favorites: [], notes: {}, session: null, theme: "light" };
   }
 }
 
@@ -892,6 +1074,12 @@ function burstCelebration() {
 function setActiveButton(container, activeButton) {
   container.querySelectorAll("button").forEach((button) => {
     button.classList.toggle("active", button === activeButton);
+  });
+}
+
+function setActiveButtonByValue(container, key, value) {
+  container.querySelectorAll("button").forEach((button) => {
+    button.classList.toggle("active", button.dataset[key] === value);
   });
 }
 
