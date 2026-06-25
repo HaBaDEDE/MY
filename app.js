@@ -21,6 +21,7 @@ const els = {
   customCount: document.querySelector("#customCount"),
   orderControl: document.querySelector("#orderControl"),
   modeControl: document.querySelector("#modeControl"),
+  autoNextToggle: document.querySelector("#autoNextToggle"),
   startButton: document.querySelector("#startButton"),
   resumeSessionButton: document.querySelector("#resumeSessionButton"),
   exportStudyButton: document.querySelector("#exportStudyButton"),
@@ -66,16 +67,20 @@ const settings = {
   type: "全部",
   order: "random",
   mode: "practice",
+  autoNext: false,
 };
 
 let store = loadStore();
 let session = null;
 let lastRenderedQuestionId = null;
+let touchStart = null;
 
 init();
 
 function init() {
   applyTheme(store.theme || "light");
+  settings.autoNext = Boolean(store.autoNext);
+  els.autoNextToggle.checked = settings.autoNext;
   bindEvents();
   updateSavedCounts();
   showLockedState();
@@ -105,6 +110,12 @@ function bindEvents() {
     else render();
   });
 
+  els.autoNextToggle.addEventListener("change", () => {
+    settings.autoNext = els.autoNextToggle.checked;
+    store.autoNext = settings.autoNext;
+    saveStore();
+  });
+
   els.startButton.addEventListener("click", () => startSession());
   els.resumeSessionButton.addEventListener("click", resumeSession);
   els.exportStudyButton.addEventListener("click", exportStudyPack);
@@ -132,6 +143,8 @@ function bindEvents() {
     if (event.target === els.sponsorDialog) closeSponsorDialog();
   });
   document.addEventListener("keydown", handleKeyboard);
+  els.questionPanel.addEventListener("touchstart", handleTouchStart, { passive: true });
+  els.questionPanel.addEventListener("touchend", handleTouchEnd, { passive: true });
 }
 
 function showLockedState() {
@@ -601,6 +614,7 @@ function saveSessionSnapshot() {
       type: settings.type,
       order: settings.order,
       mode: settings.mode,
+      autoNext: settings.autoNext,
       countValue: els.countSelect.value,
       customCount: els.customCount.value,
     },
@@ -646,6 +660,8 @@ function applyStoredSettings(savedSettings) {
   if (savedSettings.type) settings.type = savedSettings.type;
   if (savedSettings.order) settings.order = savedSettings.order;
   if (savedSettings.mode) settings.mode = savedSettings.mode;
+  if (typeof savedSettings.autoNext === "boolean") settings.autoNext = savedSettings.autoNext;
+  els.autoNextToggle.checked = settings.autoNext;
   if (savedSettings.countValue) els.countSelect.value = savedSettings.countValue;
   if (typeof savedSettings.customCount === "string") els.customCount.value = savedSettings.customCount;
   els.customCount.disabled = els.countSelect.value !== "custom";
@@ -795,10 +811,21 @@ function settleCurrentQuestion() {
     burstCelebration();
     bumpElement(els.scoreText.closest(".stat"));
     bumpElement(els.streakText.closest(".stat"));
+    maybeAutoNextQuestion();
   } else {
     bumpElement(els.wrongText.closest(".stat"));
   }
   return correct;
+}
+
+function maybeAutoNextQuestion() {
+  if (!settings.autoNext || session?.mode !== "practice" || session.completed) return;
+  if (session.current >= session.questions.length - 1) return;
+  window.setTimeout(() => {
+    const question = getCurrentQuestion();
+    if (!question || session.results[question.id] !== true) return;
+    moveQuestion(1);
+  }, 520);
 }
 
 function clearCurrentAnswer() {
@@ -937,7 +964,7 @@ function updateSavedCounts() {
 function resetSavedData() {
   const ok = window.confirm("清空错题、收藏、笔记和上次进度？");
   if (!ok) return;
-  store = { mistakes: [], favorites: [], notes: {}, session: null, theme: store.theme || "light" };
+  store = { mistakes: [], favorites: [], notes: {}, session: null, autoNext: settings.autoNext, theme: store.theme || "light" };
   session = null;
   lastRenderedQuestionId = null;
   saveStore();
@@ -952,10 +979,11 @@ function loadStore() {
       favorites: Array.isArray(parsed.favorites) ? parsed.favorites : [],
       notes: parsed.notes && typeof parsed.notes === "object" ? parsed.notes : {},
       session: parsed.session && typeof parsed.session === "object" ? parsed.session : null,
+      autoNext: Boolean(parsed.autoNext),
       theme: parsed.theme === "dark" ? "dark" : "light",
     };
   } catch {
-    return { mistakes: [], favorites: [], notes: {}, session: null, theme: "light" };
+    return { mistakes: [], favorites: [], notes: {}, session: null, autoNext: false, theme: "light" };
   }
 }
 
@@ -1033,6 +1061,36 @@ function handleKeyboard(event) {
     event.preventDefault();
     toggleTheme();
   }
+}
+
+function handleTouchStart(event) {
+  if (!session || !getCurrentQuestion()) return;
+  if (isEditableTarget(event.target)) return;
+  const touch = event.changedTouches[0];
+  touchStart = {
+    x: touch.clientX,
+    y: touch.clientY,
+    time: Date.now(),
+  };
+}
+
+function handleTouchEnd(event) {
+  if (!touchStart || !session || !getCurrentQuestion()) return;
+  if (isEditableTarget(event.target)) return;
+  const touch = event.changedTouches[0];
+  const dx = touch.clientX - touchStart.x;
+  const dy = touch.clientY - touchStart.y;
+  const elapsed = Date.now() - touchStart.time;
+  touchStart = null;
+
+  if (elapsed > 700 || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.35) return;
+  if (dx < 0) moveQuestion(1);
+  else moveQuestion(-1);
+}
+
+function isEditableTarget(target) {
+  const tag = target?.tagName?.toLowerCase();
+  return tag === "input" || tag === "select" || tag === "textarea" || target?.closest?.("button");
 }
 
 function animateQuestionPanel(className) {

@@ -231,6 +231,64 @@ textarea:focus-visible {
   color: #94a3b8;
 }
 
+.toggle-row {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.toggle-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.toggle-row strong {
+  font-size: 14px;
+}
+
+.toggle-row small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.toggle-row input {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 24px;
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-3);
+  position: relative;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.toggle-row input::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  top: 2px;
+  left: 2px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
+  transition: transform 160ms ease;
+}
+
+.toggle-row input:checked {
+  border-color: var(--teal);
+  background: var(--teal);
+}
+
+.toggle-row input:checked::after {
+  transform: translateX(20px);
+}
+
 .segmented {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1069,6 +1127,10 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  body {
+    padding-bottom: 98px;
+  }
+
   .topbar {
     height: auto;
     min-height: 72px;
@@ -1106,14 +1168,30 @@ button:disabled {
   }
 
   .question-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 10px;
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -14px 34px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(16px);
   }
 
   .question-actions button,
   .question-actions .primary-button,
   .question-actions .danger-button {
+    min-width: 0;
+    min-height: 44px;
     width: 100%;
+    padding: 0 6px;
+    font-size: 13px;
   }
 
   .result-grid {
