@@ -1,4 +1,6 @@
-const STORAGE_KEY = "maogaiQuizSite:v1";
+const pathParts = window.location.pathname.split("/").filter(Boolean);
+const storageScope = pathParts[pathParts.length - 2] || pathParts[pathParts.length - 1] || document.title || "quiz";
+const STORAGE_KEY = `quizSite:${storageScope}:v1`;
 let questionBank = [];
 
 const els = {
@@ -90,9 +92,11 @@ function bindEvents() {
   els.modeControl.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-mode]");
     if (!button) return;
+    if (settings.mode === button.dataset.mode) return;
     settings.mode = button.dataset.mode;
     setActiveButton(els.modeControl, button);
-    render();
+    if (questionBank.length) startSession();
+    else render();
   });
 
   els.startButton.addEventListener("click", () => startSession());
@@ -372,6 +376,7 @@ function renderQuestion() {
   els.feedbackBox.hidden = true;
   els.feedbackBox.textContent = "";
   els.feedbackBox.className = "feedback";
+  els.optionsList.classList.remove("is-switching");
 
   if (!question) {
     els.questionKicker.textContent = "题库";
@@ -384,6 +389,8 @@ function renderQuestion() {
   const reveal = shouldReveal(question.id);
   const correctLabels = normalizeLabels(question.answer);
   const isCorrect = gradeQuestion(question);
+  const isNewQuestion = lastRenderedQuestionId !== question.id;
+  els.optionsList.classList.toggle("is-switching", isNewQuestion);
 
   els.questionKicker.textContent = `第 ${session.current + 1} 题 · 原题号 ${question.id}`;
   els.questionStem.textContent = question.stem;
@@ -412,7 +419,7 @@ function renderQuestion() {
     els.optionsList.append(button);
   });
 
-  if (lastRenderedQuestionId !== question.id) {
+  if (isNewQuestion) {
     animateQuestionPanel("switching");
     lastRenderedQuestionId = question.id;
   }
@@ -476,11 +483,13 @@ function renderNavigator() {
 }
 
 function renderActionState() {
-  const hasQuestion = Boolean(getCurrentQuestion());
+  const question = getCurrentQuestion();
+  const hasQuestion = Boolean(question);
+  const checkedInPractice = Boolean(question && session?.mode === "practice" && session.checked[question.id]);
   els.prevButton.disabled = !hasQuestion || session?.current === 0;
   els.nextButton.disabled = !hasQuestion || session?.current === session?.questions.length - 1;
   els.clearAnswerButton.disabled = !hasQuestion || session?.completed;
-  els.checkButton.disabled = !hasQuestion || session?.completed;
+  els.checkButton.disabled = !hasQuestion || session?.completed || checkedInPractice;
   els.favoriteButton.disabled = !hasQuestion;
   els.finishButton.disabled = !hasQuestion || session?.completed;
   els.checkButton.textContent = session?.mode === "exam" ? "保存" : "确定";
@@ -506,6 +515,12 @@ function selectOption(label) {
     delete session.checked[question.id];
     delete session.results[question.id];
   }
+
+  if (session.mode === "practice" && question.type !== "多选题") {
+    settleCurrentQuestion();
+    return;
+  }
+
   render();
 }
 
@@ -526,6 +541,14 @@ function checkCurrentQuestion() {
     return;
   }
 
+  settleCurrentQuestion();
+}
+
+function settleCurrentQuestion() {
+  const question = getCurrentQuestion();
+  if (!question || !getSelected(question.id).length) return false;
+  if (session.checked[question.id]) return session.results[question.id] === true;
+
   const correct = gradeQuestion(question);
   session.checked[question.id] = true;
   session.results[question.id] = correct;
@@ -545,6 +568,7 @@ function checkCurrentQuestion() {
   } else {
     bumpElement(els.wrongText.closest(".stat"));
   }
+  return correct;
 }
 
 function clearCurrentAnswer() {
