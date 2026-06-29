@@ -18,8 +18,8 @@
         </div>
         <div class="top-actions">
           <button class="sponsor-button" id="sponsorButton" type="button">
-            <span aria-hidden="true">♥</span>
-            <span>赞助</span>
+            <span aria-hidden="true">i</span>
+            <span>说明</span>
           </button>
           <button class="icon-button" id="themeButton" type="button" title="切换主题" aria-label="切换主题">◐</button>
           <button class="icon-button" id="favoriteButton" type="button" title="收藏当前题" aria-label="收藏当前题">☆</button>
@@ -195,31 +195,16 @@
 
     <dialog class="sponsor-dialog" id="sponsorDialog">
       <div class="sponsor-card">
-        <button class="sponsor-close" id="closeSponsorButton" type="button" aria-label="关闭赞助弹窗">×</button>
+        <button class="sponsor-close" id="closeSponsorButton" type="button" aria-label="关闭说明弹窗">×</button>
         <div class="sponsor-copy">
-          <span class="sponsor-eyebrow">Support</span>
-          <h2>感谢赞助</h2>
-          <p>如果这个题库网站帮你省下一点复习时间，可以请 HaBa 喝杯奶茶。</p>
+          <span class="sponsor-eyebrow">Notice</span>
+          <h2>学习使用声明</h2>
+          <p>本站仅供个人学习、复习和知识点自测使用，不用于商业用途。</p>
+          <p>题目内容来自个人学习整理，如有不准确或不适合公开展示的内容，请及时联系维护者修改或删除。</p>
+          <p>请勿将本站用于考试作弊、违规传播或其他违反学校/平台规则的行为。</p>
         </div>
-        <div class="qr-frame">
-          <img src="assets/sponsor-wechat.jpg" alt="微信支付赞助收款码" />
-        </div>
-        <div class="sponsor-signature">HaBa</div>
+        <div class="sponsor-signature">仅供学习交流</div>
       </div>
-    </dialog>
-
-    <dialog class="unlock-dialog" id="unlockDialog">
-      <form class="unlock-card" id="unlockForm" method="dialog">
-        <div class="unlock-mark" aria-hidden="true">🔒</div>
-        <h2>解锁题库</h2>
-        <p>请输入当前 5 分钟动态口令。口令会通过 Cloudflare Worker 验证后解锁题库。</p>
-        <label class="unlock-field">
-          <span>动态口令</span>
-          <input id="unlockPassword" type="password" inputmode="numeric" autocomplete="one-time-code" placeholder="请输入 6 位口令" />
-        </label>
-        <div class="unlock-error" id="unlockError" role="alert" hidden></div>
-        <button class="primary-button" id="unlockButton" type="submit">进入题库</button>
-      </form>
     </dialog>
 
     <script src="app.js"></script>

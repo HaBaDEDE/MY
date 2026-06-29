@@ -1,17 +1,15 @@
 const pathParts = window.location.pathname.split("/").filter(Boolean);
 const storageScope = pathParts[pathParts.length - 2] || pathParts[pathParts.length - 1] || document.title || "quiz";
 const STORAGE_KEY = `quizSite:${storageScope}:v1`;
-const UNLOCK_API_URL = "https://quiz-password.a8406279307.workers.dev";
 const SITE_CODE = getSiteCode();
+const AUTO_UNLOCK_KEYS = {
+  MG: "rWQNQQeK_iTw2dl3D9x712o64xIY5MnExE_8CzCinLI",
+  MY: "JMQvOdBSGGbLyKF_t-FBELkPWdf9BH7l9mtGZJX7tBA",
+};
 let questionBank = [];
 
 const els = {
   bankMeta: document.querySelector("#bankMeta"),
-  unlockDialog: document.querySelector("#unlockDialog"),
-  unlockForm: document.querySelector("#unlockForm"),
-  unlockPassword: document.querySelector("#unlockPassword"),
-  unlockError: document.querySelector("#unlockError"),
-  unlockButton: document.querySelector("#unlockButton"),
   sponsorButton: document.querySelector("#sponsorButton"),
   sponsorDialog: document.querySelector("#sponsorDialog"),
   closeSponsorButton: document.querySelector("#closeSponsorButton"),
@@ -83,12 +81,10 @@ function init() {
   els.autoNextToggle.checked = settings.autoNext;
   bindEvents();
   updateSavedCounts();
-  showLockedState();
-  openUnlockDialog();
+  loadQuestionBankAutomatically();
 }
 
 function bindEvents() {
-  els.unlockForm.addEventListener("submit", unlockQuestionBank);
   els.countSelect.addEventListener("change", () => {
     els.customCount.disabled = els.countSelect.value !== "custom";
   });
@@ -147,11 +143,11 @@ function bindEvents() {
   els.questionPanel.addEventListener("touchend", handleTouchEnd, { passive: true });
 }
 
-function showLockedState() {
-  els.bankMeta.textContent = "题库已加密";
-  els.questionKicker.textContent = "等待解锁";
-  els.questionStem.textContent = "请输入密码后加载题库";
-  els.questionType.textContent = "锁定";
+function showLoadingState() {
+  els.bankMeta.textContent = "正在加载加密题库";
+  els.questionKicker.textContent = "题库加载中";
+  els.questionStem.textContent = "题库文件仍为加密格式，网页正在自动解密并加载。";
+  els.questionType.textContent = "加载中";
   els.optionsList.replaceChildren();
   els.noteInput.value = "";
   els.noteInput.disabled = true;
@@ -166,98 +162,27 @@ function showLockedState() {
   renderActionState();
 }
 
-function openUnlockDialog() {
-  if (typeof els.unlockDialog.showModal === "function") {
-    els.unlockDialog.showModal();
-  } else {
-    els.unlockDialog.setAttribute("open", "");
-  }
-  window.setTimeout(() => els.unlockPassword.focus(), 80);
-}
-
-async function unlockQuestionBank(event) {
-  event.preventDefault();
-  const accessCode = els.unlockPassword.value.trim();
-  if (!accessCode) {
-    showUnlockError("请输入动态口令");
-    return;
-  }
-
-  els.unlockButton.disabled = true;
-  els.unlockButton.textContent = "验证中...";
-  els.unlockError.hidden = true;
-
+async function loadQuestionBankAutomatically() {
+  showLoadingState();
   try {
-    const unlockKey = await resolveUnlockKey(accessCode);
-    questionBank = await loadEncryptedQuestions(unlockKey);
-    els.unlockPassword.value = "";
-    closeUnlockDialog();
+    questionBank = await loadEncryptedQuestions(AUTO_UNLOCK_KEYS[SITE_CODE] || AUTO_UNLOCK_KEYS.MG);
     renderTypeControl();
     startSession();
-    window.setTimeout(openSponsorDialog, 420);
   } catch (error) {
-    showUnlockError(getUnlockErrorMessage(error));
-  } finally {
-    els.unlockButton.disabled = false;
-    els.unlockButton.textContent = "进入题库";
+    showLoadError(getLoadErrorMessage(error));
   }
 }
 
-async function resolveUnlockKey(accessCode) {
-  if (!/^\d{6}$/.test(accessCode)) throw new Error("INVALID_PASSWORD");
-  const response = await fetchUnlockResponse(accessCode);
-  const payload = await parseUnlockResponse(response);
-  if (!response.ok || !payload?.ok || !payload.key) {
-    throw new Error(payload?.error || `UNLOCK_API_HTTP_${response.status}`);
-  }
-
-  return payload.key;
+function showLoadError(message) {
+  els.bankMeta.textContent = "题库加载失败";
+  els.questionKicker.textContent = "加载失败";
+  els.questionStem.textContent = message;
+  els.questionType.textContent = "错误";
+  els.optionsList.replaceChildren();
+  renderActionState();
 }
 
-async function fetchUnlockResponse(accessCode) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 10000);
-  try {
-    return await fetch(UNLOCK_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        site: SITE_CODE,
-        password: accessCode,
-      }),
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") throw new Error("UNLOCK_API_TIMEOUT");
-    throw new Error("UNLOCK_API_FETCH_FAILED");
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function parseUnlockResponse(response) {
-  try {
-    return await response.json();
-  } catch {
-    throw new Error("UNLOCK_API_BAD_RESPONSE");
-  }
-}
-
-function closeUnlockDialog() {
-  if (!els.unlockDialog?.open) return;
-  if (typeof els.unlockDialog.close === "function") {
-    els.unlockDialog.close();
-  } else {
-    els.unlockDialog.removeAttribute("open");
-  }
-}
-
-function showUnlockError(message) {
-  els.unlockError.textContent = message;
-  els.unlockError.hidden = false;
-}
-
-async function loadEncryptedQuestions(password) {
+async function loadEncryptedQuestions(unlockKey) {
   if (!window.crypto?.subtle) {
     throw new Error("WEB_CRYPTO_UNAVAILABLE");
   }
@@ -277,9 +202,9 @@ async function loadEncryptedQuestions(password) {
   const tag = base64ToBytes(payload.tag);
   const encrypted = concatBytes(ciphertext, tag);
 
-  const passwordKey = await crypto.subtle.importKey(
+  const importedUnlockKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(password),
+    new TextEncoder().encode(unlockKey),
     "PBKDF2",
     false,
     ["deriveKey"],
@@ -291,7 +216,7 @@ async function loadEncryptedQuestions(password) {
       salt,
       iterations: payload.iterations || 250000,
     },
-    passwordKey,
+    importedUnlockKey,
     { name: "AES-GCM", length: 256 },
     false,
     ["decrypt"],
@@ -308,26 +233,8 @@ async function loadEncryptedQuestions(password) {
   return questions;
 }
 
-function getUnlockErrorMessage(error) {
+function getLoadErrorMessage(error) {
   const message = error?.message || "";
-  if (message === "INVALID_PASSWORD") {
-    return "动态口令不正确，或已经过期，请重新生成当前 5 分钟口令";
-  }
-  if (message === "UNLOCK_API_FETCH_FAILED") {
-    return "动态口令服务连接失败。若手机打不开 workers.dev，需要给 Worker 绑定可访问的自定义域名";
-  }
-  if (message === "UNLOCK_API_TIMEOUT") {
-    return "动态口令服务超时。若手机打不开 workers.dev，需要给 Worker 绑定可访问的自定义域名";
-  }
-  if (message === "UNLOCK_API_BAD_RESPONSE") {
-    return "动态口令服务返回异常，请检查 Worker 代码是否部署正确";
-  }
-  if (message === "INVALID_PASSWORD" || message === "UNLOCK_API_HTTP_401") {
-    return "动态口令不正确，或已经过期，请重新生成当前 5 分钟口令";
-  }
-  if (message === "MISSING_ACCESS_SECRET" || message === "MISSING_UNLOCK_KEY") {
-    return "Worker 密钥没有配置完整，请检查 Cloudflare 的 Variables and Secrets";
-  }
   if (message === "QUESTION_FILE_FETCH_FAILED") {
     if (location.protocol === "file:") {
       return "本地不能直接双击打开，请用 python -m http.server 启动后访问 localhost";
@@ -341,7 +248,7 @@ function getUnlockErrorMessage(error) {
     return "当前浏览器不支持安全解密，请使用新版 Chrome/Edge 或通过 HTTPS 打开";
   }
   if (message === "DECRYPT_FAILED") {
-    return "题库解密失败，请确认 Worker 返回的解密密钥和 questions.enc 匹配";
+    return "题库解密失败，请确认内置解密密钥和 data/questions.enc 匹配";
   }
   return "题库解锁失败，请检查 questions.enc 是否上传完整";
 }
