@@ -538,6 +538,14 @@ button:disabled {
   overflow: hidden;
 }
 
+.question-panel.transition-next {
+  animation: questionSlideNext 180ms ease-out both;
+}
+
+.question-panel.transition-prev {
+  animation: questionSlidePrev 180ms ease-out both;
+}
+
 .question-head {
   display: flex;
   align-items: flex-start;
@@ -1188,6 +1196,28 @@ button:disabled {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes questionSlideNext {
+  from {
+    opacity: 0.94;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes questionSlidePrev {
+  from {
+    opacity: 0.94;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

@@ -846,6 +846,7 @@ function moveQuestion(step) {
   blurActiveControl();
   session.current = next;
   render();
+  playQuestionTransition(step);
 }
 
 function getCurrentQuestion() {
@@ -1075,6 +1076,15 @@ function isEditableTarget(target) {
 function blurActiveControl() {
   const active = document.activeElement;
   if (active && active instanceof HTMLElement) active.blur();
+}
+
+function playQuestionTransition(step) {
+  if (!els.questionPanel) return;
+  const className = step > 0 ? "transition-next" : "transition-prev";
+  els.questionPanel.classList.remove("transition-next", "transition-prev");
+  void els.questionPanel.offsetWidth;
+  els.questionPanel.classList.add(className);
+  window.setTimeout(() => els.questionPanel.classList.remove(className), 220);
 }
 
 function bumpElement(element) {
