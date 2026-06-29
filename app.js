@@ -82,6 +82,7 @@ function init() {
   bindEvents();
   updateSavedCounts();
   loadQuestionBankAutomatically();
+  window.setTimeout(openSponsorDialog, 0);
 }
 
 function bindEvents() {
