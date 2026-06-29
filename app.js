@@ -371,12 +371,12 @@ function renderBankMeta() {
 
 function renderQuestion() {
   const question = getCurrentQuestion();
-  els.optionsList.replaceChildren();
   els.feedbackBox.hidden = true;
   els.feedbackBox.textContent = "";
   els.feedbackBox.className = "feedback";
 
   if (!question) {
+    els.optionsList.replaceChildren();
     els.questionKicker.textContent = "题库";
     els.questionStem.textContent = "没有题目";
     els.questionType.textContent = "空";
@@ -395,9 +395,21 @@ function renderQuestion() {
   els.questionStem.textContent = question.stem;
   els.questionType.textContent = question.type;
 
-  question.options.forEach((option) => {
-    const button = document.createElement("button");
-    button.type = "button";
+  const optionButtons = Array.from(els.optionsList.querySelectorAll(".option-button"));
+  question.options.forEach((option, index) => {
+    let button = optionButtons[index];
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+
+      const label = document.createElement("span");
+      label.className = "option-label";
+      const text = document.createElement("span");
+      text.className = "option-text";
+      button.append(label, text);
+      els.optionsList.append(button);
+    }
+
     button.className = "option-button";
     button.dataset.label = option.label;
 
@@ -407,16 +419,13 @@ function renderQuestion() {
       button.classList.add("wrong");
     }
 
-    const label = document.createElement("span");
-    label.className = "option-label";
+    const label = button.querySelector(".option-label");
     label.textContent = option.label;
-    const text = document.createElement("span");
-    text.className = "option-text";
+    const text = button.querySelector(".option-text");
     text.textContent = option.text;
-    button.append(label, text);
-    button.addEventListener("click", () => selectOption(option.label));
-    els.optionsList.append(button);
+    button.onclick = () => selectOption(option.label);
   });
+  optionButtons.slice(question.options.length).forEach((button) => button.remove());
 
   if (reveal) {
     els.feedbackBox.hidden = false;
@@ -829,6 +838,7 @@ function moveQuestion(step) {
   if (!session) return;
   const next = session.current + step;
   if (next < 0 || next >= session.questions.length) return;
+  blurActiveControl();
   session.current = next;
   render();
 }
@@ -1035,6 +1045,11 @@ function handleTouchEnd(event) {
 function isEditableTarget(target) {
   const tag = target?.tagName?.toLowerCase();
   return tag === "input" || tag === "select" || tag === "textarea" || target?.closest?.("button");
+}
+
+function blurActiveControl() {
+  const active = document.activeElement;
+  if (active && active instanceof HTMLElement) active.blur();
 }
 
 function bumpElement(element) {

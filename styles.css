@@ -80,6 +80,8 @@ textarea {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 button:focus-visible,
@@ -534,7 +536,6 @@ button:disabled {
   padding: 24px;
   position: relative;
   overflow: hidden;
-  animation: cardIn 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .question-head {
@@ -606,17 +607,11 @@ button:disabled {
   inset: 0;
   background: linear-gradient(90deg, rgba(47, 128, 237, 0.11), transparent);
   opacity: 0;
-  transform: translateX(-18px);
-  transition:
-    opacity 180ms ease,
-    transform 180ms ease;
   z-index: -1;
 }
 
-.option-button:hover::before,
 .option-button.selected::before {
   opacity: 1;
-  transform: translateX(0);
 }
 
 .option-label {
@@ -638,8 +633,6 @@ button:disabled {
 .option-button.selected {
   border-color: var(--blue-2);
   background: #eff6ff;
-  transform: translateY(-1px);
-  box-shadow: 0 12px 24px rgba(47, 128, 237, 0.14);
 }
 
 .option-button.correct {
@@ -1184,17 +1177,6 @@ button:disabled {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes cardIn {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.99);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
