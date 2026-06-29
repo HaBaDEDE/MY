@@ -71,6 +71,7 @@ const settings = {
 let store = loadStore();
 let session = null;
 let touchStart = null;
+let scrollSaveFrame = 0;
 
 init();
 
@@ -138,6 +139,7 @@ function bindEvents() {
   els.sponsorDialog.addEventListener("click", (event) => {
     if (event.target === els.sponsorDialog) closeSponsorDialog();
   });
+  window.addEventListener("scroll", rememberScrollPosition, { passive: true });
   document.addEventListener("keydown", handleKeyboard);
   els.questionPanel.addEventListener("touchstart", handleTouchStart, { passive: true });
   els.questionPanel.addEventListener("touchend", handleTouchEnd, { passive: true });
@@ -167,7 +169,7 @@ async function loadQuestionBankAutomatically() {
   try {
     questionBank = await loadEncryptedQuestions(AUTO_UNLOCK_KEYS[SITE_CODE] || AUTO_UNLOCK_KEYS.MG);
     renderTypeControl();
-    startSession();
+    if (!restoreSessionSnapshot({ silent: true, restoreScroll: true })) startSession();
   } catch (error) {
     showLoadError(getLoadErrorMessage(error));
   }
@@ -324,6 +326,7 @@ function startSession(sourceQuestions) {
     bestStreak: 0,
     completed: false,
   };
+  store.scrollY = 0;
   render();
 }
 
@@ -580,20 +583,20 @@ function saveSessionSnapshot() {
 }
 
 function resumeSession() {
-  if (!questionBank.length) {
-    openUnlockDialog();
-    return;
-  }
+  if (!questionBank.length) return;
+  restoreSessionSnapshot({ restoreScroll: true });
+}
+
+function restoreSessionSnapshot({ silent = false, restoreScroll = false } = {}) {
   const snapshot = store.session;
   if (!snapshot?.ids?.length) {
-    window.alert("暂无上次练习记录");
-    return;
+    if (!silent) window.alert("暂无上次练习记录");
+    return false;
   }
-
   const questions = snapshot.ids.map((id) => questionBank.find((item) => item.id === id)).filter(Boolean);
   if (!questions.length) {
-    window.alert("上次练习记录里的题目已经找不到");
-    return;
+    if (!silent) window.alert("上次练习记录里的题目已经找不到");
+    return false;
   }
 
   applyStoredSettings(snapshot.settings || {});
@@ -609,6 +612,8 @@ function resumeSession() {
     completed: Boolean(snapshot.completed),
   };
   render();
+  if (restoreScroll) restoreScrollPosition();
+  return true;
 }
 
 function applyStoredSettings(savedSettings) {
@@ -919,7 +924,7 @@ function updateSavedCounts() {
 function resetSavedData() {
   const ok = window.confirm("清空错题、收藏、笔记和上次进度？");
   if (!ok) return;
-  store = { mistakes: [], favorites: [], notes: {}, session: null, autoNext: settings.autoNext, theme: store.theme || "light" };
+  store = { mistakes: [], favorites: [], notes: {}, session: null, autoNext: settings.autoNext, scrollY: 0, theme: store.theme || "light" };
   session = null;
   saveStore();
   render();
@@ -934,16 +939,36 @@ function loadStore() {
       notes: parsed.notes && typeof parsed.notes === "object" ? parsed.notes : {},
       session: parsed.session && typeof parsed.session === "object" ? parsed.session : null,
       autoNext: Boolean(parsed.autoNext),
+      scrollY: Number.isFinite(parsed.scrollY) ? parsed.scrollY : 0,
       theme: parsed.theme === "dark" ? "dark" : "light",
     };
   } catch {
-    return { mistakes: [], favorites: [], notes: {}, session: null, autoNext: false, theme: "light" };
+    return { mistakes: [], favorites: [], notes: {}, session: null, autoNext: false, scrollY: 0, theme: "light" };
   }
 }
 
 function saveStore() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   updateSavedCounts();
+}
+
+function rememberScrollPosition() {
+  if (scrollSaveFrame) return;
+  scrollSaveFrame = window.requestAnimationFrame(() => {
+    scrollSaveFrame = 0;
+    store.scrollY = Math.max(0, Math.round(window.scrollY || document.documentElement.scrollTop || 0));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+  });
+}
+
+function restoreScrollPosition() {
+  const scrollY = Number(store.scrollY);
+  if (!Number.isFinite(scrollY) || scrollY <= 0) return;
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+    });
+  });
 }
 
 function toggleTheme() {
