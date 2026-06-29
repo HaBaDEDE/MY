@@ -70,7 +70,6 @@ const settings = {
 
 let store = loadStore();
 let session = null;
-let lastRenderedQuestionId = null;
 let touchStart = null;
 
 init();
@@ -325,7 +324,6 @@ function startSession(sourceQuestions) {
     bestStreak: 0,
     completed: false,
   };
-  lastRenderedQuestionId = null;
   render();
 }
 
@@ -377,7 +375,6 @@ function renderQuestion() {
   els.feedbackBox.hidden = true;
   els.feedbackBox.textContent = "";
   els.feedbackBox.className = "feedback";
-  els.optionsList.classList.remove("is-switching");
 
   if (!question) {
     els.questionKicker.textContent = "题库";
@@ -393,8 +390,6 @@ function renderQuestion() {
   const reveal = shouldReveal(question.id);
   const correctLabels = normalizeLabels(question.answer);
   const isCorrect = gradeQuestion(question);
-  const isNewQuestion = lastRenderedQuestionId !== question.id;
-  els.optionsList.classList.toggle("is-switching", isNewQuestion);
 
   els.questionKicker.textContent = `第 ${session.current + 1} 题 · 原题号 ${question.id}`;
   els.questionStem.textContent = question.stem;
@@ -422,11 +417,6 @@ function renderQuestion() {
     button.addEventListener("click", () => selectOption(option.label));
     els.optionsList.append(button);
   });
-
-  if (isNewQuestion) {
-    animateQuestionPanel("switching");
-    lastRenderedQuestionId = question.id;
-  }
 
   if (reveal) {
     els.feedbackBox.hidden = false;
@@ -609,7 +599,6 @@ function resumeSession() {
     bestStreak: snapshot.bestStreak || 0,
     completed: Boolean(snapshot.completed),
   };
-  lastRenderedQuestionId = null;
   render();
 }
 
@@ -922,7 +911,6 @@ function resetSavedData() {
   if (!ok) return;
   store = { mistakes: [], favorites: [], notes: {}, session: null, autoNext: settings.autoNext, theme: store.theme || "light" };
   session = null;
-  lastRenderedQuestionId = null;
   saveStore();
   render();
 }
@@ -1047,14 +1035,6 @@ function handleTouchEnd(event) {
 function isEditableTarget(target) {
   const tag = target?.tagName?.toLowerCase();
   return tag === "input" || tag === "select" || tag === "textarea" || target?.closest?.("button");
-}
-
-function animateQuestionPanel(className) {
-  if (!els.questionPanel) return;
-  els.questionPanel.classList.remove(className);
-  void els.questionPanel.offsetWidth;
-  els.questionPanel.classList.add(className);
-  window.setTimeout(() => els.questionPanel.classList.remove(className), 620);
 }
 
 function bumpElement(element) {
