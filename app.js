@@ -441,6 +441,38 @@ function renderQuestion() {
   renderNote(question);
 }
 
+function refreshCurrentQuestionState() {
+  const question = getCurrentQuestion();
+  if (!question) return;
+
+  const selected = getSelected(question.id);
+  const reveal = shouldReveal(question.id);
+  const correctLabels = normalizeLabels(question.answer);
+
+  els.optionsList.querySelectorAll(".option-button").forEach((button) => {
+    const label = button.dataset.label;
+    button.classList.toggle("selected", selected.includes(label));
+    button.classList.toggle("correct", reveal && correctLabels.includes(label));
+    button.classList.toggle("wrong", reveal && selected.includes(label) && !correctLabels.includes(label));
+  });
+
+  els.feedbackBox.hidden = !reveal;
+  els.feedbackBox.textContent = "";
+  els.feedbackBox.className = "feedback";
+  if (reveal) {
+    const isCorrect = gradeQuestion(question);
+    els.feedbackBox.classList.add(isCorrect ? "correct" : "wrong");
+    els.feedbackBox.textContent = isCorrect ? `正确：${formatAnswer(question)}` : `正确答案：${formatAnswer(question)}`;
+  }
+
+  els.favoriteButton.classList.toggle("active", store.favorites.includes(question.id));
+  els.favoriteButton.textContent = store.favorites.includes(question.id) ? "★" : "☆";
+  renderStats();
+  renderNavigator();
+  saveSessionSnapshot();
+  renderActionState();
+}
+
 function renderStats() {
   if (!session) {
     els.progressText.textContent = "0 / 0";
@@ -692,7 +724,7 @@ function selectOption(label) {
     return;
   }
 
-  render();
+  refreshCurrentQuestionState();
 }
 
 function checkCurrentQuestion() {
@@ -730,8 +762,7 @@ function settleCurrentQuestion() {
     session.streak = 0;
   }
   updateMistake(question.id, correct);
-  render();
-  animateQuestionPanel(correct ? "correct-flash" : "wrong-flash");
+  refreshCurrentQuestionState();
   if (correct) {
     burstCelebration();
     bumpElement(els.scoreText.closest(".stat"));

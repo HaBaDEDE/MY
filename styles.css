@@ -677,13 +677,11 @@ button:disabled {
 .option-button.correct {
   border-color: #68c79b;
   background: var(--green-bg);
-  animation: answerPop 420ms ease both;
 }
 
 .option-button.wrong {
   border-color: #e59a94;
   background: var(--red-bg);
-  animation: answerShake 360ms ease both;
 }
 
 :root[data-theme="dark"] .option-button.selected {
