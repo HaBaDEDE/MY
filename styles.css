@@ -1139,15 +1139,14 @@ button:disabled {
 
 @media (max-width: 640px) {
   body {
-    padding-bottom: calc(132px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
   .topbar {
-    position: static;
     height: auto;
-    min-height: 0;
-    padding: 10px 12px;
-    gap: 10px;
+    min-height: 72px;
+    padding: 12px;
+    gap: 12px;
     align-items: flex-start;
     flex-wrap: wrap;
   }
@@ -1216,14 +1215,11 @@ button:disabled {
 
   .control-panel {
     padding: 12px;
-    border-radius: 12px;
-    box-shadow: none;
   }
 
   .panel-asset {
-    max-height: 112px;
+    max-height: 136px;
     margin-bottom: 10px;
-    border-radius: 10px;
   }
 
   .control-block {
@@ -1253,49 +1249,33 @@ button:disabled {
     height: 58px;
   }
 
-  .quiz-area {
-    gap: 10px;
-  }
-
   .session-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
     gap: 8px;
-    margin-inline: 0;
-    padding: 0;
-    overflow: visible;
-    scroll-snap-type: none;
+    margin-inline: -10px;
+    padding: 0 10px 2px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
   }
 
   .session-strip::-webkit-scrollbar {
     display: none;
   }
 
-  .session-strip .stat:first-child {
-    grid-column: 1 / -1;
-  }
-
   .stat {
-    min-height: 58px;
-    padding: 10px 12px;
+    flex: 0 0 124px;
+    min-height: 64px;
+    padding: 12px;
+    scroll-snap-align: start;
   }
 
   .stat span {
-    font-size: 21px;
-  }
-
-  .stat small {
-    margin-top: 4px;
-  }
-
-  .progress-rail {
-    height: 8px;
+    font-size: 22px;
   }
 
   .question-panel {
     padding: 14px;
-    border-radius: 12px;
-    box-shadow: none;
   }
 
   .question-head {
@@ -1343,7 +1323,7 @@ button:disabled {
     bottom: 0;
     z-index: 20;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
     margin: 0;
     padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
@@ -1364,16 +1344,8 @@ button:disabled {
     white-space: nowrap;
   }
 
-  #checkButton {
-    grid-column: 1 / -1;
-    order: -1;
-    min-height: 46px;
-  }
-
   .navigator-panel {
     padding: 12px;
-    border-radius: 12px;
-    box-shadow: none;
   }
 
   .navigator-head {
@@ -1381,25 +1353,14 @@ button:disabled {
   }
 
   .question-nav {
-    display: flex;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
     gap: 7px;
-    max-height: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0 0 4px;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
+    max-height: 220px;
     -webkit-overflow-scrolling: touch;
   }
 
-  .question-nav::-webkit-scrollbar {
-    display: none;
-  }
-
   .nav-button {
-    flex: 0 0 42px;
     height: 40px;
-    scroll-snap-align: start;
   }
 
   .sponsor-card,
@@ -1443,20 +1404,6 @@ button:disabled {
   .question-actions .primary-button,
   .question-actions .danger-button {
     font-size: 12px;
-  }
-}
-
-@media (max-width: 360px) {
-  .top-actions {
-    grid-template-columns: minmax(96px, 1fr) 42px 42px;
-  }
-
-  .top-actions .text-button {
-    grid-column: 1 / -1;
-  }
-
-  .panel-asset {
-    max-height: 96px;
   }
 }
 
