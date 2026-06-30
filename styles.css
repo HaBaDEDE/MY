@@ -1063,6 +1063,7 @@ button:disabled {
   justify-content: center;
   align-items: center;
   gap: 8px;
+  margin-top: 20px;
   color: var(--muted);
   font-weight: 900;
   letter-spacing: 0.04em;
@@ -1138,7 +1139,7 @@ button:disabled {
 
 @media (max-width: 640px) {
   body {
-    padding-bottom: 98px;
+    padding-bottom: calc(98px + env(safe-area-inset-bottom, 0px));
   }
 
   .topbar {
@@ -1147,34 +1148,172 @@ button:disabled {
     padding: 12px;
     gap: 12px;
     align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand-icon {
+    width: 29px;
+    height: 29px;
   }
 
   .brand h1 {
     font-size: 18px;
   }
 
+  .brand p {
+    font-size: 12px;
+  }
+
   .top-actions {
-    gap: 6px;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(94px, 1fr) 44px 44px minmax(84px, auto);
+    gap: 8px;
+  }
+
+  .top-actions button {
+    min-height: 44px;
+  }
+
+  .top-actions .sponsor-button,
+  .top-actions .text-button {
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .top-actions .icon-button {
+    width: 44px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
   }
 
   .workspace {
     padding: 10px;
+    gap: 12px;
+  }
+
+  .control-panel {
+    padding: 12px;
+  }
+
+  .panel-asset {
+    max-height: 136px;
+    margin-bottom: 10px;
+  }
+
+  .control-block {
+    padding: 10px 0;
+  }
+
+  .segmented {
+    gap: 7px;
+  }
+
+  .segmented button,
+  .field select,
+  .field input {
+    min-height: 44px;
+  }
+
+  .toggle-row {
+    min-height: 50px;
+    align-items: center;
+  }
+
+  .quick-grid {
+    gap: 8px;
+  }
+
+  .quick-card {
+    height: 58px;
   }
 
   .session-strip {
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    gap: 8px;
+    margin-inline: -10px;
+    padding: 0 10px 2px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .session-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stat {
+    flex: 0 0 124px;
+    min-height: 64px;
+    padding: 12px;
+    scroll-snap-align: start;
+  }
+
+  .stat span {
+    font-size: 22px;
   }
 
   .question-panel {
-    padding: 16px;
+    padding: 14px;
   }
 
   .question-head {
     display: grid;
+    gap: 10px;
   }
 
   .question-head h2 {
     font-size: 18px;
+    line-height: 1.6;
+  }
+
+  .type-pill {
+    justify-self: start;
+  }
+
+  .option-button {
+    min-height: 52px;
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .option-label {
+    width: 30px;
+    height: 30px;
+  }
+
+  .option-text {
+    font-size: 15px;
+  }
+
+  .note-box {
+    padding: 12px;
+  }
+
+  .note-box textarea {
+    min-height: 76px;
   }
 
   .question-actions {
@@ -1187,7 +1326,7 @@ button:disabled {
     grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
     margin: 0;
-    padding: 10px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--surface) 94%, transparent);
     border-top: 1px solid var(--line);
     box-shadow: 0 -14px 34px rgba(15, 23, 42, 0.14);
@@ -1202,10 +1341,80 @@ button:disabled {
     width: 100%;
     padding: 0 6px;
     font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .navigator-panel {
+    padding: 12px;
+  }
+
+  .navigator-head {
+    align-items: center;
+  }
+
+  .question-nav {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 7px;
+    max-height: 220px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-button {
+    height: 40px;
+  }
+
+  .sponsor-card,
+  .unlock-card,
+  .result-content {
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    padding: 20px;
   }
 
   .result-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .top-actions {
+    grid-template-columns: minmax(86px, 1fr) 42px 42px minmax(76px, auto);
+    gap: 6px;
+  }
+
+  .top-actions .icon-button {
+    width: 42px;
+  }
+
+  .top-actions .sponsor-button,
+  .top-actions .text-button {
+    font-size: 13px;
+    padding-inline: 8px;
+  }
+
+  .two-column {
+    gap: 8px;
+  }
+
+  .question-actions {
+    gap: 6px;
+  }
+
+  .question-actions button,
+  .question-actions .primary-button,
+  .question-actions .danger-button {
+    font-size: 12px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  button:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .quick-card:hover::before {
+    transform: translateX(-100%);
   }
 }
 
