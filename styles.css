@@ -218,6 +218,18 @@ textarea:focus-visible {
   background: var(--surface-2);
 }
 
+.panel-asset-dark {
+  display: none;
+}
+
+:root[data-theme="dark"] .panel-asset-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .panel-asset-dark {
+  display: block;
+}
+
 .control-block {
   padding: 12px 0;
   border-top: 1px solid var(--line);
